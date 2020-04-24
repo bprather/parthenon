@@ -139,6 +139,8 @@ void ParthenonManager::PostDriver(DriverStatus driver_status) {
 
   pouts->MakeOutputs(pmesh.get(), pinput.get());
 
+  pmesh->UserWorkAfterLoop(pinput.get());
+
   // Print diagnostic messages related to the end of the simulation
   if (Globals::my_rank == 0) {
     pmesh->OutputCycleDiagnostics();
