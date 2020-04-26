@@ -150,6 +150,13 @@ class ParArrayNDGeneric {
   }
   auto GetHostMirrorAndCopy() { return GetMirrorAndCopy(Kokkos::HostSpace()); }
 
+  // TODO(pgrete): is this really what we want/need? Does it work?
+  template <typename Other>
+  void SwapView(Other &src) {
+    std::swap(d6d_, src.d6d_);
+    return;
+  }
+
   // JMM: DO NOT put noexcept here. It somehow interferes with inlining
   // and the code slows down by a factor of 5.
   KOKKOS_FORCEINLINE_FUNCTION
