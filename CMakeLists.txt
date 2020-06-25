@@ -34,6 +34,7 @@ stop linting by default. You can still lint using the \"lint\" target"
 option(ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
 option(ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
 option(ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
+option(ENABLE_EXAMPLES "Enable example programs" ON)
 option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
@@ -206,7 +207,10 @@ if (TEST_INTEL_OPTIMIZATION)
 endif()	       
 
 add_subdirectory(src)
-add_subdirectory(example)
+
+if(${ENABLE_EXAMPLES})
+  add_subdirectory(example)
+endif()
 
 include(cmake/CheckCopyright.cmake)
 
