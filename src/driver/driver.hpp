@@ -16,12 +16,14 @@
 
 #include <map>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "basic_types.hpp"
 #include "globals.hpp"
+#include "kokkos_abstraction.hpp"
+#include "Kokkos_Atomic.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
 #include "task_list/tasks.hpp"
@@ -84,6 +86,10 @@ namespace DriverUtils {
 
 template <typename T, class... Args>
 TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
+#ifdef OPENMP_PARALLEL
+  int nthreads = driver->pmesh->GetNumMeshThreads();
+#endif
+
   int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
   std::vector<TaskList> task_lists;
   MeshBlock *pmb = driver->pmesh->pblock;
@@ -91,18 +97,35 @@ TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
     task_lists.push_back(driver->MakeTaskList(pmb, std::forward<Args>(args)...));
     pmb = pmb->next;
   }
+
   int complete_cnt = 0;
-  while (complete_cnt != nmb) {
-    // TODO(pgrete): need to let Kokkos::PartitionManager handle this
-    for (auto i = 0; i < nmb; ++i) {
-      if (!task_lists[i].IsComplete()) {
-        auto status = task_lists[i].DoAvailable();
-        if (status == TaskListStatus::complete) {
-          complete_cnt++;
+  Kokkos::View<int *, HostMemSpace> mb_locks("mb_locks", nmb);
+  auto f = [&](int, int) {
+    while (complete_cnt != nmb) {
+      for (auto i = 0; i < nmb; ++i) {
+        // try to obtain lock by changing val from 0 to 1
+        if (Kokkos::atomic_compare_exchange_strong(&mb_locks(i), 0, 1)) {
+          if (!task_lists[i].IsComplete()) {
+            auto status = task_lists[i].DoAvailable();
+            if (status == TaskListStatus::complete) {
+              // no reset of the lock here so that no other thread may increment the cnt
+              Kokkos::atomic_increment(&complete_cnt);
+            }
+          }
+          Kokkos::atomic_decrement(&mb_locks(i));
         }
       }
     }
-  }
+  };
+
+#ifdef KOKKOS_ENABLE_OPENMP
+  // using a fixed number of partitions (= nthreads) with each partition of size 1,
+  // i.e., one thread per partition and this thread is the master thread
+  Kokkos::OpenMP::partition_master(f, nthreads, 1);
+#else
+  f(0, 1);
+#endif
+
   return TaskListStatus::complete;
 }
 
