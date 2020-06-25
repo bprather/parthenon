@@ -17,6 +17,9 @@
 
 #include "uniform_cartesian.hpp"
 
+// Include user coordinates from KHARMA
+#include "coordinates/gr_coordinates.hpp"
+
 namespace parthenon {
 
 using Coordinates_t = COORDINATE_TYPE;

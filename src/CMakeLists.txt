@@ -79,7 +79,7 @@ set(COMPILER_FLAGS "<not-implemented>") # TODO: Put something more descriptive h
 
 set(NFIELD_VARIABLES 0) # TODO: Remove
 set(NWAVE_VALUE 5) # TODO: Remove
-set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are available
+set(COORDINATE_TYPE GRCoordinates) # TODO: Make this an option when more are available
 
 configure_file(config.hpp.in generated/config.hpp @ONLY)
 
