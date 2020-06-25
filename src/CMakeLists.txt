@@ -223,6 +223,8 @@ target_link_libraries(parthenon PUBLIC Kokkos::kokkos)
 
 target_include_directories(parthenon PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../../kharma/
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../variant/include/
   ${CMAKE_CURRENT_BINARY_DIR}/generated
 )
 
