@@ -11,34 +11,34 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "interface/sparse_variable.hpp"
+#ifndef TASKS_TASK_TYPES_HPP_
+#define TASKS_TASK_TYPES_HPP_
 
-#include "interface/metadata.hpp"
+#include <functional>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "basic_types.hpp"
 
 namespace parthenon {
 
-template <typename T>
-void SparseVariable<T>::Add(int varIndex, std::array<int, 6> &dims) {
-  // Now allocate depending on topology
-  if ((metadata_.Where() == Metadata::Cell) || (metadata_.Where() == Metadata::Node) ||
-      (metadata_.Where() == Metadata::None)) {
-    // check if variable index already exists
-    if (varMap_.find(varIndex) != varMap_.end()) {
-      throw std::invalid_argument("Duplicate index in create SparseVariable");
-    }
-    // create the variable and add to map
-    std::string my_name = label_ + "_" + std::to_string(varIndex);
-    Metadata metadata = metadata_;
-    metadata.SetSparseId(varIndex);
-    auto v = std::make_shared<CellVariable<T>>(my_name, dims, metadata);
-    varArray_.push_back(v);
-    indexMap_.push_back(varIndex);
-    varMap_[varIndex] = v;
-  } else {
-    throw std::invalid_argument("unsupported type in SparseVariable");
-  }
-}
+class Task {
+ public:
+  Task(TaskID id, TaskID dep, std::function<TaskStatus()> func)
+      : myid_(id), dep_(dep), func_(func) {}
+  TaskStatus operator()() { return func_(); }
+  TaskID GetID() { return myid_; }
+  TaskID GetDependency() { return dep_; }
+  void SetComplete() { complete_ = true; }
+  bool IsComplete() { return complete_; }
 
-template class SparseVariable<Real>;
+ private:
+  TaskID myid_, dep_;
+  bool lb_time, complete_ = false;
+  std::function<TaskStatus()> func_;
+};
 
 } // namespace parthenon
+
+#endif // TASKS_TASK_TYPES_HPP_

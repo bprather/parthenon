@@ -11,34 +11,40 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "interface/sparse_variable.hpp"
+#ifndef TASKS_TASK_ID_HPP_
+#define TASKS_TASK_ID_HPP_
 
-#include "interface/metadata.hpp"
+#include <bitset>
+#include <string>
+#include <vector>
+
+#include "basic_types.hpp"
 
 namespace parthenon {
 
-template <typename T>
-void SparseVariable<T>::Add(int varIndex, std::array<int, 6> &dims) {
-  // Now allocate depending on topology
-  if ((metadata_.Where() == Metadata::Cell) || (metadata_.Where() == Metadata::Node) ||
-      (metadata_.Where() == Metadata::None)) {
-    // check if variable index already exists
-    if (varMap_.find(varIndex) != varMap_.end()) {
-      throw std::invalid_argument("Duplicate index in create SparseVariable");
-    }
-    // create the variable and add to map
-    std::string my_name = label_ + "_" + std::to_string(varIndex);
-    Metadata metadata = metadata_;
-    metadata.SetSparseId(varIndex);
-    auto v = std::make_shared<CellVariable<T>>(my_name, dims, metadata);
-    varArray_.push_back(v);
-    indexMap_.push_back(varIndex);
-    varMap_[varIndex] = v;
-  } else {
-    throw std::invalid_argument("unsupported type in SparseVariable");
-  }
-}
+//----------------------------------------------------------------------------------------
+//! \class TaskID
+//  \brief generalization of bit fields for Task IDs, status, and dependencies.
 
-template class SparseVariable<Real>;
+#define BITBLOCK 16
+
+class TaskID {
+ public:
+  TaskID() { Set(0); }
+  explicit TaskID(int id);
+
+  void Set(int id);
+  void clear();
+  bool CheckDependencies(const TaskID &rhs) const;
+  void SetFinished(const TaskID &rhs);
+  bool operator==(const TaskID &rhs) const;
+  TaskID operator|(const TaskID &rhs) const;
+  std::string to_string();
+
+ private:
+  std::vector<std::bitset<BITBLOCK>> bitblocks;
+};
 
 } // namespace parthenon
+
+#endif // TASKS_TASK_ID_HPP_
