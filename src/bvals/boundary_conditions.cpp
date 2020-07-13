@@ -11,6 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <memory>
+
 #include "bvals/boundary_conditions.hpp"
 
 #include "bvals/bvals_interfaces.hpp"
@@ -20,8 +22,8 @@
 
 namespace parthenon {
 
-TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
-  MeshBlock *pmb = rc.pmy_block;
+TaskStatus ApplyBoundaryConditions(std::shared_ptr<Container<Real>> &rc) {
+  MeshBlock *pmb = rc->pmy_block;
   const IndexDomain interior = IndexDomain::interior;
   const IndexDomain entire = IndexDomain::entire;
   IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
@@ -39,15 +41,11 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
   case BoundaryFlag::outflow:
     for (int n = 0; n < nvars; n++) {
       ParArrayND<Real> q = citer.vars[n]->data;
-      for (int l = 0; l < q.GetDim(4); l++) {
-        for (int k = kb.s; k <= kb.e; k++) {
-          for (int j = 0; j < jmax; j++) {
-            for (int i = 0; i < ib.s; i++) {
-              q(l, k, j, i) = q(l, k, j, ib.s);
-            }
-          }
+      pmb->par_for("inner_x1_outflow", 0, q.GetDim(4)-1, kb.s, kb.e, jb.s, jb.e, 0, ib.s-1,
+        KOKKOS_LAMBDA (const int& l, const int& k, const int& j, const int& i) {
+          q(l, k, j, i) = q(l, k, j, ib.s);
         }
-      }
+      );
     }
     break;
 
@@ -55,16 +53,12 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
     for (int n = 0; n < nvars; n++) {
       ParArrayND<Real> q = citer.vars[n]->data;
       bool vec = citer.vars[n]->IsSet(Metadata::Vector);
-      for (int l = 0; l < q.GetDim(4); l++) {
-        Real reflect = (l == 0 && vec ? -1.0 : 1.0);
-        for (int k = kb.s; k <= kb.e; k++) {
-          for (int j = 0; j < jmax; j++) {
-            for (int i = 0; i < ib.s; i++) {
-              q(l, k, j, i) = reflect * q(l, k, j, 2 * ib.s - i - 1);
-            }
-          }
+      pmb->par_for("inner_x1_reflect", 0, q.GetDim(4)-1, kb.s, kb.e, jb.s, jb.e, 0, ib.s-1,
+        KOKKOS_LAMBDA (const int& l, const int& k, const int& j, const int& i) {
+          Real reflect = (l == 0 && vec ? -1.0 : 1.0);
+          q(l, k, j, i) = reflect * q(l, k, j, 2 * ib.s - i - 1);
         }
-      }
+      );
     }
     break;
 
@@ -76,15 +70,11 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
   case BoundaryFlag::outflow:
     for (int n = 0; n < nvars; n++) {
       ParArrayND<Real> q = citer.vars[n]->data;
-      for (int l = 0; l < q.GetDim(4); l++) {
-        for (int k = kb.s; k <= kb.e; k++) {
-          for (int j = 0; j < jmax; j++) {
-            for (int i = ib.e + 1; i < imax; i++) {
+      pmb->par_for("outer_x1_outflow", 0, q.GetDim(4)-1, kb.s, kb.e, jb.s, jb.e, ib.e+1, imax-1,
+        KOKKOS_LAMBDA (const int& l, const int& k, const int& j, const int& i) {
               q(l, k, j, i) = q(l, k, j, ib.e);
-            }
-          }
         }
-      }
+      );
     }
     break;
 
@@ -92,16 +82,12 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
     for (int n = 0; n < nvars; n++) {
       ParArrayND<Real> q = citer.vars[n]->data;
       bool vec = citer.vars[n]->IsSet(Metadata::Vector);
-      for (int l = 0; l < q.GetDim(4); l++) {
-        Real reflect = (l == 0 && vec ? -1.0 : 1.0);
-        for (int k = kb.s; k <= kb.e; k++) {
-          for (int j = 0; j < jmax; j++) {
-            for (int i = ib.e + 1; i < imax; i++) {
-              q(l, k, j, i) = reflect * q(l, k, j, 2 * ib.e - i + 1);
-            }
-          }
+      pmb->par_for("outer_x1_reflect", 0, q.GetDim(4)-1, kb.s, kb.e, jb.s, jb.e, ib.e+1, imax-1,
+        KOKKOS_LAMBDA (const int& l, const int& k, const int& j, const int& i) {
+          Real reflect = (l == 0 && vec ? -1.0 : 1.0);
+          q(l, k, j, i) = reflect * q(l, k, j, 2 * ib.e - i + 1);
         }
-      }
+      );
     }
     break;
 
@@ -114,15 +100,11 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
     case BoundaryFlag::outflow:
       for (int n = 0; n < nvars; n++) {
         ParArrayND<Real> q = citer.vars[n]->data;
-        for (int l = 0; l < q.GetDim(4); l++) {
-          for (int k = kb.s; k <= kb.e; k++) {
-            for (int j = 0; j < jb.s; j++) {
-              for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = q(l, k, jb.s, i);
-              }
-            }
+        pmb->par_for("inner_x2_outflow", 0, q.GetDim(4)-1, kb.s, kb.e, 0, jb.s-1, 0, imax-1,
+          KOKKOS_LAMBDA (const int& l, const int& k, const int& j, const int& i) {
+            q(l, k, j, i) = q(l, k, jb.s, i);
           }
-        }
+        );
       }
       break;
 
@@ -130,16 +112,12 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
       for (int n = 0; n < nvars; n++) {
         ParArrayND<Real> q = citer.vars[n]->data;
         bool vec = citer.vars[n]->IsSet(Metadata::Vector);
-        for (int l = 0; l < q.GetDim(4); l++) {
-          Real reflect = (l == 1 && vec ? -1.0 : 1.0);
-          for (int k = kb.s; k <= kb.e; k++) {
-            for (int j = 0; j < jb.s; j++) {
-              for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = reflect * q(l, k, 2 * jb.s - j - 1, i);
-              }
-            }
+        pmb->par_for("inner_x2_reflect", 0, q.GetDim(4)-1, kb.s, kb.e, 0, jb.s-1, 0, imax-1,
+          KOKKOS_LAMBDA (const int& l, const int& k, const int& j, const int& i) {
+            Real reflect = (l == 1 && vec ? -1.0 : 1.0);
+            q(l, k, j, i) = reflect * q(l, k, 2 * jb.s - j - 1, i);
           }
-        }
+        );
       }
       break;
 
@@ -151,15 +129,11 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
     case BoundaryFlag::outflow:
       for (int n = 0; n < nvars; n++) {
         ParArrayND<Real> q = citer.vars[n]->data;
-        for (int l = 0; l < q.GetDim(4); l++) {
-          for (int k = kb.s; k <= kb.e; k++) {
-            for (int j = jb.e + 1; j < jmax; j++) {
-              for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = q(l, k, jb.e, i);
-              }
-            }
+        pmb->par_for("outer_x2_outflow", 0, q.GetDim(4)-1, kb.s, kb.e, jb.e+1, jmax-1, 0, imax-1,
+          KOKKOS_LAMBDA (const int& l, const int& k, const int& j, const int& i) {
+            q(l, k, j, i) = q(l, k, jb.e, i);
           }
-        }
+        );
       }
       break;
 
@@ -167,16 +141,12 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
       for (int n = 0; n < nvars; n++) {
         ParArrayND<Real> q = citer.vars[n]->data;
         bool vec = citer.vars[n]->IsSet(Metadata::Vector);
-        for (int l = 0; l < q.GetDim(4); l++) {
-          Real reflect = (l == 1 && vec ? -1.0 : 1.0);
-          for (int k = kb.s; k <= kb.e; k++) {
-            for (int j = jb.e + 1; j < jmax; j++) {
-              for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = reflect * q(l, k, 2 * jb.e - j + 1, i);
-              }
-            }
+        pmb->par_for("outer_x2_reflect", 0, q.GetDim(4)-1, kb.s, kb.e, jb.e+1, jmax-1, 0, imax-1,
+          KOKKOS_LAMBDA (const int& l, const int& k, const int& j, const int& i) {
+            Real reflect = (l == 1 && vec ? -1.0 : 1.0);
+            q(l, k, j, i) = reflect * q(l, k, 2 * jb.e - j + 1, i);
           }
-        }
+        );
       }
       break;
 
@@ -190,15 +160,11 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
     case BoundaryFlag::outflow:
       for (int n = 0; n < nvars; n++) {
         ParArrayND<Real> q = citer.vars[n]->data;
-        for (int l = 0; l < q.GetDim(4); l++) {
-          for (int k = 0; k < kb.s; k++) {
-            for (int j = 0; j < jmax; j++) {
-              for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = q(l, kb.s, j, i);
-              }
-            }
+        pmb->par_for("inner_x3_outflow", 0, q.GetDim(4)-1, 0, kb.s-1, 0, jmax-1, 0, imax-1,
+          KOKKOS_LAMBDA (const int& l, const int& k, const int& j, const int& i) {
+            q(l, k, j, i) = q(l, kb.s, j, i);
           }
-        }
+        );
       }
       break;
 
@@ -206,16 +172,12 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
       for (int n = 0; n < nvars; n++) {
         ParArrayND<Real> q = citer.vars[n]->data;
         bool vec = citer.vars[n]->IsSet(Metadata::Vector);
-        for (int l = 0; l < q.GetDim(4); l++) {
-          Real reflect = (l == 2 && vec ? -1.0 : 1.0);
-          for (int k = 0; k < kb.s; k++) {
-            for (int j = 0; j < jmax; j++) {
-              for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = reflect * q(l, 2 * kb.s - k - 1, j, i);
-              }
-            }
+        pmb->par_for("inner_x3_reflect", 0, q.GetDim(4)-1, 0, kb.s-1, 0, jmax-1, 0, imax-1,
+          KOKKOS_LAMBDA (const int& l, const int& k, const int& j, const int& i) {
+            Real reflect = (l == 2 && vec ? -1.0 : 1.0);
+            q(l, k, j, i) = reflect * q(l, 2 * kb.s - k - 1, j, i);
           }
-        }
+        );
       }
       break;
 
@@ -227,15 +189,11 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
     case BoundaryFlag::outflow:
       for (int n = 0; n < nvars; n++) {
         ParArrayND<Real> q = citer.vars[n]->data;
-        for (int l = 0; l < q.GetDim(4); l++) {
-          for (int k = kb.e + 1; k < kmax; k++) {
-            for (int j = 0; j < jmax; j++) {
-              for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = q(l, kb.e, j, i);
-              }
-            }
+        pmb->par_for("outer_x3_outflow", 0, q.GetDim(4)-1, kb.e+1, kmax-1, 0, jmax-1, 0, imax-1,
+          KOKKOS_LAMBDA (const int& l, const int& k, const int& j, const int& i) {
+            q(l, k, j, i) = q(l, kb.e, j, i);
           }
-        }
+        );
       }
       break;
 
@@ -243,16 +201,12 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
       for (int n = 0; n < nvars; n++) {
         ParArrayND<Real> q = citer.vars[n]->data;
         bool vec = citer.vars[n]->IsSet(Metadata::Vector);
-        for (int l = 0; l < q.GetDim(4); l++) {
-          Real reflect = (l == 2 && vec ? -1.0 : 1.0);
-          for (int k = kb.e + 1; k < kmax; k++) {
-            for (int j = 0; j < jmax; j++) {
-              for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = reflect * q(l, 2 * kb.e - k + 1, j, i);
-              }
-            }
+        pmb->par_for("outer_x3_reflect", 0, q.GetDim(4)-1, kb.e+1, kmax-1, 0, jmax-1, 0, imax-1,
+          KOKKOS_LAMBDA (const int& l, const int& k, const int& j, const int& i) {
+            Real reflect = (l == 2 && vec ? -1.0 : 1.0);
+            q(l, k, j, i) = reflect * q(l, 2 * kb.e - k + 1, j, i);
           }
-        }
+        );
       }
       break;
 
