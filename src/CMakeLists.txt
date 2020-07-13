@@ -79,7 +79,7 @@ set(COMPILER_FLAGS "<not-implemented>") # TODO: Put something more descriptive h
 
 set(NFIELD_VARIABLES 0) # TODO: Remove
 set(NWAVE_VALUE 5) # TODO: Remove
-set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are available
+set(COORDINATE_TYPE GRCoordinates) # TODO: Make this an option when more are available
 
 configure_file(config.hpp.in generated/config.hpp @ONLY)
 
@@ -225,6 +225,8 @@ target_link_libraries(parthenon PUBLIC Kokkos::kokkos)
 
 target_include_directories(parthenon PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../../kharma/
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../variant/include/
   ${CMAKE_CURRENT_BINARY_DIR}/generated
 )
 
