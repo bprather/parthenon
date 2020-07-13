@@ -143,20 +143,8 @@ template <typename T>
 using MapToVariableFluxPack = std::map<vpack_types::StringPair, FluxPackIndxPair<T>>;
 
 template <typename T>
-<<<<<<< HEAD
-<<<<<<< HEAD
-VariableFluxPack<T>
-MakeFluxPack(const DevExecSpace exec_space, const vpack_types::VarList<T> &vars,
-             const vpack_types::VarList<T> &flux_vars, PackIndexMap *vmap = nullptr) {
-=======
 void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
                  ViewOfParArrays<T> &cv, ParArrayND<int> &sparse_assoc) {
->>>>>>> 42c09c15ba0d8389851b8957b3d98028e31fbed7
-=======
-VariableFluxPack<T>
-MakeFluxPack(const DevExecSpace exec_space, const vpack_types::VarList<T> &vars,
-             const vpack_types::VarList<T> &flux_vars, PackIndexMap *vmap = nullptr) {
->>>>>>> aba42f454bd5fca14909fa257f224ff1026f6c12
   using vpack_types::IndexPair;
 
   auto host_view = cv.GetHostMirror();
@@ -261,7 +249,6 @@ void FillFluxViews(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
           std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
     }
   }
-
   if (vmap != nullptr && sparse_name != "") {
     vmap->insert(std::pair<std::string, IndexPair>(sparse_name,
                                                    IndexPair(sparse_start, vindex - 1)));
@@ -302,15 +289,10 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
   FillFluxViews(flux_vars, vmap, ndim, f1, f2, f3);
 
   return VariableFluxPack<T>(cv, f1, f2, f3, sparse_assoc, cv_size, fsize);
-<<<<<<< HEAD
-=======
->>>>>>> 42c09c15ba0d8389851b8957b3d98028e31fbed7
->>>>>>> aba42f454bd5fca14909fa257f224ff1026f6c12
 }
 
 template <typename T>
-VariablePack<T> MakePack(const DevExecSpace exec_space,
-                         const vpack_types::VarList<T> &vars,
+VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
                          PackIndexMap *vmap = nullptr) {
   // count up the size
   int vsize = 0;
@@ -324,10 +306,6 @@ VariablePack<T> MakePack(const DevExecSpace exec_space,
 
   FillVarView(vars, vmap, cv, sparse_assoc);
 
-<<<<<<< HEAD
-  cv.DeepCopy(exec_space, host_view);
-=======
->>>>>>> 42c09c15ba0d8389851b8957b3d98028e31fbed7
   auto fvar = vars.front()->data;
   std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
   return VariablePack<T>(cv, sparse_assoc, cv_size);
