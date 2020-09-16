@@ -15,6 +15,7 @@
 #define PARTHENON_PACKAGE_HPP_
 
 // Internal Includes
+#include <application_input.hpp>
 #include <basic_types.hpp>
 #include <coordinates/coordinates.hpp>
 #include <interface/container_iterator.hpp>
@@ -24,6 +25,7 @@
 #include <interface/variable_pack.hpp>
 #include <kokkos_abstraction.hpp>
 #include <mesh/mesh.hpp>
+#include <mesh/meshblock_pack.hpp>
 #include <parameter_input.hpp>
 #include <parthenon_manager.hpp>
 
@@ -36,17 +38,20 @@ namespace prelude {
 using namespace ::parthenon::prelude;
 
 using ::parthenon::AmrTag;
+using ::parthenon::ApplicationInput;
 using ::parthenon::ContainerIterator;
 using ::parthenon::Coordinates;
 using ::parthenon::DerivedOwnership;
 using ::parthenon::DevExecSpace;
 using ::parthenon::MeshBlock;
+using ::parthenon::MeshBlockPack;
+using ::parthenon::MeshBlockVarFluxPack;
+using ::parthenon::MeshBlockVarPack;
 using ::parthenon::Metadata;
 using ::parthenon::PackIndexMap;
 using ::parthenon::par_for;
 using ::parthenon::ParameterInput;
 using ::parthenon::Params;
-using ::parthenon::ParthenonManager;
 using ::parthenon::StateDescriptor;
 using ::parthenon::TaskStatus;
 using ::parthenon::VariableFluxPack;

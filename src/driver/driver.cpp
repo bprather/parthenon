@@ -31,35 +31,21 @@ void Driver::PreExecute() {
     std::cout << std::endl << "Setup complete, executing driver...\n" << std::endl;
   }
 
-  tstart_ = clock();
-#ifdef OPENMP_PARALLEL
-  omp_start_time_ = omp_get_wtime();
-#endif
+  timer_main.reset();
 }
 
 void Driver::PostExecute() {
   if (Globals::my_rank == 0) {
     SignalHandler::CancelWallTimeAlarm();
     // Calculate and print the zone-cycles/cpu-second and wall-second
-#ifdef OPENMP_PARALLEL
-    double omp_time = omp_get_wtime() - omp_start_time_;
-#endif
-    clock_t tstop = clock();
-    double cpu_time = (tstop > tstart_ ? static_cast<double>(tstop - tstart_) : 1.0) /
-                      static_cast<double>(CLOCKS_PER_SEC);
     std::uint64_t zonecycles =
         pmesh->mbcnt *
-        static_cast<std::uint64_t>(pmesh->pblock->GetNumberOfMeshBlockCells());
-    double zc_cpus = static_cast<double>(zonecycles) / cpu_time;
+        static_cast<std::uint64_t>(pmesh->block_list.front().GetNumberOfMeshBlockCells());
 
-    std::cout << std::endl << "zone-cycles = " << zonecycles << std::endl;
-    std::cout << "cpu time used  = " << cpu_time << std::endl;
-    std::cout << "zone-cycles/cpu_second = " << zc_cpus << std::endl;
-#ifdef OPENMP_PARALLEL
-    double zc_omps = static_cast<double>(zonecycles) / omp_time;
-    std::cout << std::endl << "omp wtime used = " << omp_time << std::endl;
-    std::cout << "zone-cycles/omp_wsecond = " << zc_omps << std::endl;
-#endif
+    auto wtime = timer_main.seconds();
+    std::cout << std::endl << "walltime used = " << wtime << std::endl;
+    std::cout << "zone-cycles/wallsecond = " << static_cast<double>(zonecycles) / wtime
+              << std::endl;
   }
 }
 
@@ -69,6 +55,8 @@ DriverStatus EvolutionDriver::Execute() {
   SetGlobalTimeStep();
   pouts->MakeOutputs(pmesh, pinput, &tm);
   pmesh->mbcnt = 0;
+  int perf_cycle_offset =
+      pinput->GetOrAddInteger("parthenon/time", "perf_cycle_offset", 0);
   while (tm.KeepGoing()) {
     if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
@@ -78,13 +66,12 @@ DriverStatus EvolutionDriver::Execute() {
       return DriverStatus::failed;
     }
     // pmesh->UserWorkInLoop();
-
     tm.ncycle++;
     tm.time += tm.dt;
     pmesh->mbcnt += pmesh->nbtotal;
     pmesh->step_since_lb++;
 
-    pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput);
+    pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput, app_input);
     if (pmesh->modified) InitializeBlockTimeSteps();
     SetGlobalTimeStep();
     if (tm.time < tm.tlim) // skip the final output as it happens later
@@ -94,9 +81,13 @@ DriverStatus EvolutionDriver::Execute() {
     if (SignalHandler::CheckSignalFlags() != 0) {
       return DriverStatus::failed;
     }
+    if (tm.ncycle == perf_cycle_offset) {
+      pmesh->mbcnt = 0;
+      timer_main.reset();
+    }
   } // END OF MAIN INTEGRATION LOOP ======================================================
 
-  pmesh->UserWorkAfterLoop(pinput, tm);
+  pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
 
   DriverStatus status = DriverStatus::complete;
 
@@ -133,10 +124,8 @@ void EvolutionDriver::PostExecute(DriverStatus status) {
 
 void EvolutionDriver::InitializeBlockTimeSteps() {
   // calculate the first time step
-  MeshBlock *pmb = pmesh->pblock;
-  while (pmb != nullptr) {
-    pmb->SetBlockTimestep(Update::EstimateTimestep(pmb->real_containers.Get()));
-    pmb = pmb->next;
+  for (auto &mb : pmesh->block_list) {
+    mb.SetBlockTimestep(Update::EstimateTimestep(mb.real_containers.Get()));
   }
 }
 
@@ -145,13 +134,10 @@ void EvolutionDriver::InitializeBlockTimeSteps() {
 // \brief function that loops over all MeshBlocks and find new timestep
 
 void EvolutionDriver::SetGlobalTimeStep() {
-  MeshBlock *pmb = pmesh->pblock;
-
   Real dt_max = 2.0 * tm.dt;
   tm.dt = std::numeric_limits<Real>::max();
-  while (pmb != nullptr) {
-    tm.dt = std::min(tm.dt, pmb->NewDt());
-    pmb = pmb->next;
+  for (auto const &mb : pmesh->block_list) {
+    tm.dt = std::min(tm.dt, mb.NewDt());
   }
   tm.dt = std::min(dt_max, tm.dt);
 
@@ -168,15 +154,24 @@ void EvolutionDriver::SetGlobalTimeStep() {
 
 void EvolutionDriver::OutputCycleDiagnostics() {
   const int dt_precision = std::numeric_limits<Real>::max_digits10 - 1;
-  const int ratio_precision = 3;
   if (tm.ncycle_out != 0) {
     if (tm.ncycle % tm.ncycle_out == 0) {
       if (Globals::my_rank == 0) {
+        std::uint64_t zonecycles =
+            (pmesh->mbcnt - mbcnt_prev) *
+            static_cast<std::uint64_t>(
+                pmesh->block_list.front().GetNumberOfMeshBlockCells());
         std::cout << "cycle=" << tm.ncycle << std::scientific
                   << std::setprecision(dt_precision) << " time=" << tm.time
-                  << " dt=" << tm.dt;
+                  << " dt=" << tm.dt << std::setprecision(2) << " zone-cycles/wsec = "
+                  << static_cast<double>(zonecycles) / timer_cycle.seconds();
         // insert more diagnostics here
         std::cout << std::endl;
+
+        // reset cycle related counters
+        timer_cycle.reset();
+        // need to cache number of MeshBlocks as AMR/load balance change it
+        mbcnt_prev = pmesh->mbcnt;
       }
     }
   }

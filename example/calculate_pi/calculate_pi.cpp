@@ -11,52 +11,22 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-// Self Include
-#include "calculate_pi.hpp"
-
 // Standard Includes
 #include <iostream>
+#include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 // Parthenon Includes
 #include <coordinates/coordinates.hpp>
+#include <kokkos_abstraction.hpp>
 #include <parthenon/package.hpp>
 
+// Local Includes
+#include "calculate_pi.hpp"
+
 using namespace parthenon::package::prelude;
-
-namespace parthenon {
-
-// can be used to set global properties that all meshblocks want to know about
-// no need in this app so use the weak version that ships with parthenon
-// Properties_t ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput>& pin)
-// {
-//  Properties_t props;
-//  return props;
-//}
-
-Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
-  Packages_t packages;
-  // only have one package for this app, but will typically have more things added to
-  packages["calculate_pi"] = calculate_pi::Initialize(pin.get());
-  return packages;
-}
-
-// this should set up initial conditions of independent variables on the block
-// this app only has one variable of derived type, so nothing to do here.
-// in this case, just use the weak version
-// void MeshBlock::ProblemGenerator(ParameterInput *pin) {
-//  // nothing to do here for this app
-//}
-
-// applications can register functions to fill shared derived quantities
-// before and/or after all the package FillDerived call backs
-// in this case, just use the weak version that sets these to nullptr
-// void ParthenonManager::SetFillDerivedFunctions() {
-//  FillDerivedVariables::SetFillDerivedFunctions(nullptr,nullptr);
-//}
-
-} // namespace parthenon
 
 // This defines a "physics" package
 // In this case, calculate_pi provides the functions required to set up
@@ -110,28 +80,44 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return package;
 }
 
-TaskStatus ComputeArea(MeshBlock *pmb) {
-  // compute 1/r0^2 \int d^2x in_or_out(x,y) over the block's domain
-  auto &rc = pmb->real_containers.Get();
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  auto &coords = pmb->coords;
+TaskStatus ComputeArea(Pack_t pack, ParArrayHost<Real> areas, int i) {
+  const IndexRange ib = pack.cellbounds.GetBoundsI(IndexDomain::interior);
+  const IndexRange jb = pack.cellbounds.GetBoundsJ(IndexDomain::interior);
+  const IndexRange kb = pack.cellbounds.GetBoundsK(IndexDomain::interior);
 
-  ParArrayND<Real> &v = rc->Get("in_or_out").data;
-
-  Real area;
+  Real area = 0.0;
+  using policy = Kokkos::MDRangePolicy<Kokkos::Rank<5>>;
   Kokkos::parallel_reduce(
       "calculate_pi compute area",
-      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(pmb->exec_space, {kb.s, jb.s, ib.s},
-                                             {kb.e + 1, jb.e + 1, ib.e + 1},
-                                             {1, 1, ib.e + 1 - ib.s}),
-      KOKKOS_LAMBDA(int k, int j, int i, Real &larea) {
-        larea += v(k, j, i) * coords.Area(parthenon::X3DIR, k, j, i);
+      policy(parthenon::DevExecSpace(), {0, 0, kb.s, jb.s, ib.s},
+             {pack.GetDim(5), pack.GetDim(4), kb.e + 1, jb.e + 1, ib.e + 1},
+             {1, 1, 1, 1, ib.e + 1 - ib.s}),
+      KOKKOS_LAMBDA(int b, int v, int k, int j, int i, Real &larea) {
+        larea += pack(b, v, k, j, i) * pack.coords(b).Area(parthenon::X3DIR, k, j, i);
       },
       area);
-  Kokkos::deep_copy(pmb->exec_space, v.Get(0, 0, 0, 0, 0, 0), area);
 
+  areas(i) = area;
+  return TaskStatus::complete;
+}
+
+TaskStatus AccumulateAreas(ParArrayHost<Real> areas, Packages_t &packages) {
+  const auto &radius = packages["calculate_pi"]->Param<Real>("radius");
+
+  Real area = 0.0;
+  for (int i = 0; i < areas.GetSize(); i++) {
+    area += areas(i);
+  }
+  area /= (radius * radius);
+
+#ifdef MPI_PARALLEL
+  Real pi_val;
+  MPI_Reduce(&area, &pi_val, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
+#else
+  Real pi_val = area;
+#endif
+
+  packages["calculate_pi"]->AddParam("pi_val", pi_val);
   return TaskStatus::complete;
 }
 
