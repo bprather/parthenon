@@ -130,7 +130,7 @@ TaskCollection PiDriver::MakeTasks(T &blocks) {
   int pack_size = pinput->GetOrAddInteger("Pi", "pack_size", 1);
   if (pack_size < 1) pack_size = blocks.size();
 
-  partition::Partition_t<MeshBlock> partitions;
+  std::vector<BlockList_t> partitions;
   partition::ToSizeN(blocks, pack_size, partitions);
   ParArrayHost<Real> areas("areas", partitions.size());
 
@@ -141,14 +141,14 @@ TaskCollection PiDriver::MakeTasks(T &blocks) {
       TaskID none(0);
       auto pack = PackVariablesOnMesh(partitions[i], "base",
                                       std::vector<std::string>{"in_or_out"});
-      auto get_area = async_region[i].AddTask(ComputeArea, none, pack, areas, i);
+      auto get_area = async_region[i].AddTask(none, ComputeArea, pack, areas, i);
     }
   }
   TaskRegion &sync_region = tc.AddRegion(1);
   {
     TaskID none(0);
     auto accumulate_areas =
-        sync_region[0].AddTask(AccumulateAreas, none, areas, pmesh->packages);
+        sync_region[0].AddTask(none, AccumulateAreas, areas, pmesh->packages);
   }
 
   return tc;
