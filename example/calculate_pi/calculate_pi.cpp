@@ -71,12 +71,26 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Metadata m({Metadata::Cell, Metadata::Derived});
   package->AddField(field_name, m, DerivedOwnership::unique);
 
+  // Add a named MeshPack by registering a function that packs it
+  package->AddMeshBlockPack("in_or_out", [](Mesh *pmesh) {
+    int pack_size = pmesh->DefaultPackSize();
+    std::vector<MeshBlockVarPack<Real>> packs;
+    auto partitions = partition::ToSizeN(pmesh->block_list, pack_size);
+    packs.resize(partitions.size());
+    for (int i = 0; i < partitions.size(); i++) {
+      packs[i] = PackVariablesOnMesh(partitions[i], "base",
+                                     std::vector<std::string>{"in_or_out"});
+    }
+    return packs;
+  });
+
   // All the package FillDerived and CheckRefinement functions are called by parthenon
   package->FillDerived = SetInOrOut;
   // could use package specific refinement tagging routine (see advection example), but
   // instead this example will make use of the parthenon shipped first derivative
   // criteria, as invoked in the input file
   // package->CheckRefinement = CheckRefinement;
+
   return package;
 }
 
@@ -86,12 +100,10 @@ TaskStatus ComputeArea(Pack_t pack, ParArrayHost<Real> areas, int i) {
   const IndexRange kb = pack.cellbounds.GetBoundsK(IndexDomain::interior);
 
   Real area = 0.0;
-  using policy = Kokkos::MDRangePolicy<Kokkos::Rank<5>>;
-  Kokkos::parallel_reduce(
-      "calculate_pi compute area",
-      policy(parthenon::DevExecSpace(), {0, 0, kb.s, jb.s, ib.s},
-             {pack.GetDim(5), pack.GetDim(4), kb.e + 1, jb.e + 1, ib.e + 1},
-             {1, 1, 1, 1, ib.e + 1 - ib.s}),
+  par_reduce(
+      parthenon::loop_pattern_mdrange_tag, "calculate_pi compute area",
+      parthenon::DevExecSpace(), 0, pack.GetDim(5) - 1, 0, pack.GetDim(4) - 1, kb.s, kb.e,
+      jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(int b, int v, int k, int j, int i, Real &larea) {
         larea += pack(b, v, k, j, i) * pack.coords(b).Area(parthenon::X3DIR, k, j, i);
       },
