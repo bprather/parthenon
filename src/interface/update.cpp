@@ -139,6 +139,23 @@ void UpdateMeshData(std::shared_ptr<MeshData<Real>> &in,
       });
 }
 
+void AverageMeshBlockData(std::shared_ptr<MeshBlockData<Real>> &c1,
+                     std::shared_ptr<MeshBlockData<Real>> &c2, const Real wgt1) {
+  std::shared_ptr<MeshBlock> pmb = c1->GetBlockPointer();
+
+  std::vector<MetadataFlag> flags({Metadata::Independent});
+  auto c1_pack = c1->PackVariables(flags);
+  auto c2_pack = c2->PackVariables(flags);
+
+  pmb->par_for(
+      "AverageMeshBlockData", 0, c1_pack.GetDim(4) - 1, 0, c1_pack.GetDim(3) - 1, 0,
+      c1_pack.GetDim(2) - 1, 0, c1_pack.GetDim(1) - 1,
+      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+        c1_pack(l, k, j, i) =
+            wgt1 * c1_pack(l, k, j, i) + (1 - wgt1) * c2_pack(l, k, j, i);
+      });
+}
+
 void AverageMeshData(std::shared_ptr<MeshData<Real>> &c1,
                      std::shared_ptr<MeshData<Real>> &c2, const Real wgt1) {
   std::vector<MetadataFlag> flags({Metadata::Independent});

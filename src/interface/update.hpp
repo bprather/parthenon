@@ -38,6 +38,8 @@ void UpdateMeshBlockData(std::shared_ptr<MeshBlockData<Real>> &in,
 void UpdateMeshData(std::shared_ptr<MeshData<Real>> &in,
                     std::shared_ptr<MeshData<Real>> &dudt, const Real dt,
                     std::shared_ptr<MeshData<Real>> &out);
+void AverageMeshBlockData(std::shared_ptr<MeshBlockData<Real>> &c1,
+                          std::shared_ptr<MeshBlockData<Real>> &c2, const Real wgt1);
 void AverageMeshData(std::shared_ptr<MeshData<Real>> &c1_pack,
                      std::shared_ptr<MeshData<Real>> &c2_pack, const Real wgt1);
 Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc);
