@@ -72,11 +72,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   package->AddField(field_name, m, DerivedOwnership::unique);
 
   // All the package FillDerived and CheckRefinement functions are called by parthenon
-  package->FillDerived = SetInOrOut;
+  package->FillDerivedBlock = SetInOrOut;
   // could use package specific refinement tagging routine (see advection example), but
   // instead this example will make use of the parthenon shipped first derivative
   // criteria, as invoked in the input file
-  // package->CheckRefinement = CheckRefinement;
+  // package->CheckRefinementBlock = CheckRefinement;
 
   return package;
 }
@@ -113,7 +113,8 @@ TaskStatus AccumulateAreas(ParArrayHost<Real> areas, Packages_t &packages) {
 
 #ifdef MPI_PARALLEL
   Real pi_val;
-  MPI_Reduce(&area, &pi_val, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
+  PARTHENON_MPI_CHECK(
+      MPI_Reduce(&area, &pi_val, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD));
 #else
   Real pi_val = area;
 #endif
