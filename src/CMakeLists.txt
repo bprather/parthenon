@@ -106,7 +106,7 @@ set(COMPILER_FLAGS "<not-implemented>") # TODO: Put something more descriptive h
 
 set(NFIELD_VARIABLES 0) # TODO: Remove
 set(NWAVE_VALUE 5) # TODO: Remove
-set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are available
+set(COORDINATE_TYPE GRCoordinates) # TODO: Make this an option when more are available
 
 configure_file(config.hpp.in generated/config.hpp @ONLY)
 
@@ -265,6 +265,8 @@ lint_target(parthenon)
 target_include_directories(parthenon PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../../kharma>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../variant/include>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/parthenon>
   )
 
