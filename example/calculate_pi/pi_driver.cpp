@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -106,11 +106,12 @@ void PiDriver::PostExecute(Real pi_val) {
 
     std::fstream fs;
     fs.open("summary.txt", std::fstream::out);
+    if (!fs.is_open()) PARTHENON_THROW("Unable to open summary.txt");
     fs << "PI = " << pi_val << std::endl;
     fs << "rel error = " << (pi_val - M_PI) / M_PI << std::endl;
     fs.close();
   }
-  Driver::PostExecute();
+  Driver::PostExecute(DriverStatus::complete);
 }
 
 template <typename T>
