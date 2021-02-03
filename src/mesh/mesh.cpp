@@ -1043,7 +1043,7 @@ void Mesh::EnrollUserTimeStepFunction(TimeStepFunc my_func) {
 
 void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
   for (auto &pmb : block_list) {
-    pmb->UserWorkBeforeOutput(pin);
+    pmb->UserWorkBeforeOutput(pmb.get(), pin);
   }
 }
 

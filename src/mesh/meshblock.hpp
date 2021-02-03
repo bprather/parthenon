@@ -243,8 +243,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void
-  UserWorkBeforeOutputDefault(ParameterInput *pin); // called in Mesh fn (friend class)
-  std::function<void(ParameterInput *)> UserWorkBeforeOutput =
+  UserWorkBeforeOutputDefault(MeshBlock *pmb, ParameterInput *pin); // called in Mesh fn (friend class)
+  std::function<void(MeshBlock *pmb, ParameterInput *)> UserWorkBeforeOutput =
       &UserWorkBeforeOutputDefault;
   static void UserWorkInLoopDefault(); // called in TimeIntegratorTaskList
   std::function<void()> UserWorkInLoop = &UserWorkInLoopDefault;
