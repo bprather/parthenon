@@ -46,7 +46,7 @@ class Params {
   void Add(const std::string &key, T value) {
     PARTHENON_REQUIRE_THROWS(!(hasKey(key)), "Key " + key + " already exists");
     myParams_[key] = std::unique_ptr<Params::base_t>(new object_t<T>(value));
-    myTypes_.emplace(make_pair(key, std::type_index(typeid(value))));
+    myTypes_.emplace(std::make_pair(key, std::type_index(typeid(value))));
   }
 
   /// Updates existing object
