@@ -16,6 +16,7 @@
 #include "config.hpp"
 
 #include "uniform_cartesian.hpp"
+#include "coordinates/gr_coordinates.hpp"
 
 namespace parthenon {
 
