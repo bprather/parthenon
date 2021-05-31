@@ -133,7 +133,7 @@ void MeshBlock::UserWorkInLoopDefault() {
 //  \brief Function called before generating output files
 //========================================================================================
 
-void MeshBlock::UserWorkBeforeOutputDefault(ParameterInput *pin) {
+void MeshBlock::UserWorkBeforeOutputDefault(MeshBlock *pmb, ParameterInput *pin) {
   // do nothing
   return;
 }
